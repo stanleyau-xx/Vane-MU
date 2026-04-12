@@ -58,7 +58,7 @@ const Page = () => {
         throw new Error(data.message);
       }
 
-      data.blogs = data.blogs.filter((blog: Discover) => blog.thumbnail);
+
 
       setDiscover(data.blogs);
     } catch (err: any) {
