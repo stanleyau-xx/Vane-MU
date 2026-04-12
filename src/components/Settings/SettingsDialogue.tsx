@@ -4,6 +4,7 @@ import {
   BrainCog,
   ChevronLeft,
   ExternalLink,
+  Key,
   Search,
   Sliders,
   ToggleRight,
@@ -19,6 +20,7 @@ import Models from './Sections/Models/Section';
 import SearchSection from './Sections/Search';
 import Select from '@/components/ui/Select';
 import Personalization from './Sections/Personalization';
+import ChangePassword from './Sections/ChangePassword';
 
 const sections = [
   {
@@ -36,6 +38,14 @@ const sections = [
     icon: ToggleRight,
     component: Personalization,
     dataAdd: 'personalization',
+  },
+  {
+    key: 'security',
+    name: 'Change Password',
+    description: 'Update your account password.',
+    icon: Key,
+    component: ChangePassword,
+    dataAdd: 'security',
   },
   {
     key: 'models',
