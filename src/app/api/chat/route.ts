@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import ModelRegistry from '@/lib/models/registry';
 import { ModelWithProvider } from '@/lib/models/types';
@@ -9,6 +10,7 @@ import db from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { chats } from '@/lib/db/schema';
 import UploadManager from '@/lib/uploads/manager';
+import { requireAuth } from '@/lib/middleware';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,20 +72,22 @@ const safeValidateBody = (data: unknown) => {
 
 const ensureChatExists = async (input: {
   id: string;
+  userId: string;
   sources: SearchSources[];
   query: string;
   fileIds: string[];
 }) => {
   try {
-    const exists = await db.query.chats
-      .findFirst({
-        where: eq(chats.id, input.id),
-      })
-      .execute();
+    const [exists] = await db
+      .select()
+      .from(chats)
+      .where(eq(chats.id, input.id))
+      .limit(1);
 
     if (!exists) {
       await db.insert(chats).values({
         id: input.id,
+        userId: input.userId,
         createdAt: new Date().toISOString(),
         sources: input.sources,
         title: input.query,
@@ -102,6 +106,10 @@ const ensureChatExists = async (input: {
 
 export const POST = async (req: Request) => {
   try {
+    // Auth check
+    const auth = await requireAuth(req as NextRequest);
+    if (!auth.success) return auth.error;
+
     const reqBody = (await req.json()) as Body;
 
     const parseBody = safeValidateBody(reqBody);
@@ -227,6 +235,7 @@ export const POST = async (req: Request) => {
 
     ensureChatExists({
       id: body.message.chatId,
+      userId: auth.user.id,
       sources: body.sources as SearchSources[],
       fileIds: body.files,
       query: body.message.content,
@@ -240,7 +249,7 @@ export const POST = async (req: Request) => {
     return new Response(responseStream.readable, {
       headers: {
         'Content-Type': 'text/event-stream',
-        Connection: 'keep-alive',
+        'Connection': 'keep-alive',
         'Cache-Control': 'no-cache, no-transform',
       },
     });
