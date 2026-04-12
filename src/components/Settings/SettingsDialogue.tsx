@@ -74,7 +74,7 @@ const SettingsDialogue = ({
   const [selectedSection, setSelectedSection] = useState(visibleSections[0]);
 
   useEffect(() => {
-    setSelectedSection(visibleSections.find((s) => s.key === activeSection));
+    setSelectedSection(visibleSections.find((s) => s.key === activeSection) || visibleSections[0]);
   }, [activeSection]);
 
   useEffect(() => {
