@@ -1,12 +1,21 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { SignJWT, jwtVerify } from 'jose';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 import db from '@/lib/db';
 import { users, sessions } from '@/lib/db/schema';
 
+// Ensure JWT_SECRET is set in production
+const jwtSecretEnv = process.env.JWT_SECRET;
+if (!jwtSecretEnv) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  // Only use fallback in development
+  console.warn('WARNING: Using fallback JWT_SECRET in development only. Set JWT_SECRET for production.');
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'vane-mu-secret-key-change-in-production',
+  jwtSecretEnv || 'vane-mu-secret-key-change-in-production-dev-only',
 );
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -191,6 +200,13 @@ export async function updateUser(
   id: string,
   data: { username?: string; role?: UserRole },
 ): Promise<void> {
+  // If role is changing, invalidate all existing sessions to force re-authentication
+  if (data.role !== undefined) {
+    const existingUser = await getUserById(id);
+    if (existingUser && existingUser.role !== data.role) {
+      await invalidateAllUserSessions(id);
+    }
+  }
   await db.update(users).set(data).where(eq(users.id, id));
 }
 
@@ -238,5 +254,5 @@ export async function changePassword(
 // Clean up expired sessions (call periodically)
 export async function cleanupExpiredSessions(): Promise<void> {
   const now = new Date().toISOString();
-  await db.delete(sessions).where(gt(sessions.expiresAt, now));
+  await db.delete(sessions).where(lt(sessions.expiresAt, now));
 }

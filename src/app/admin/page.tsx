@@ -37,6 +37,11 @@ export default function AdminPage() {
   }
 
   if (!user) {
+    // user is null means unauthenticated (not loading)
+    // Redirect to home
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader />

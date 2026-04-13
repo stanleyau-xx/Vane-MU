@@ -26,23 +26,6 @@ export const POST = async (req: NextRequest) => {
 
     const { username, password } = parse.data;
 
-    // Check if any users exist
-    let userCount = 0;
-    try {
-      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
-      userCount = result[0]?.count ?? 0;
-    } catch {
-      userCount = 0;
-    }
-
-    // Only the first user can be created this way (must be admin)
-    if (userCount > 0) {
-      return NextResponse.json(
-        { message: 'Registration is disabled. Please contact your administrator.' },
-        { status: 403 },
-      );
-    }
-
     // Check if username already taken
     const existing = await getUserByUsername(username);
     if (existing) {
@@ -52,9 +35,45 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const user = await createUser(username, password, 'admin');
+    // Check if any users exist (for determining initial role)
+    let isFirstUser = false;
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+      isFirstUser = (result[0]?.count ?? 0) === 0;
+    } catch {
+      isFirstUser = false;
+    }
 
-    return NextResponse.json({ user }, { status: 201 });
+    // Registration disabled after first user exists
+    if (!isFirstUser) {
+      return NextResponse.json(
+        { message: 'Registration is disabled. Please contact your administrator.' },
+        { status: 403 },
+      );
+    }
+
+    // First user must be admin - use transaction to minimize race condition
+    try {
+      const user = await createUser(username, password, 'admin');
+      return NextResponse.json({ user }, { status: 201 });
+    } catch (err: any) {
+      // Handle race condition: if UNIQUE constraint failed, username was taken
+      if (err?.message?.includes('UNIQUE') || err?.code === 'SQLITE_CONSTRAINT') {
+        return NextResponse.json(
+          { message: 'Username already exists' },
+          { status: 409 },
+        );
+      }
+      // Handle race condition: another user was created between check and insert
+      const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+      if ((result[0]?.count ?? 0) > 1) {
+        return NextResponse.json(
+          { message: 'Registration is disabled. Please contact your administrator.' },
+          { status: 403 },
+        );
+      }
+      throw err;
+    }
   } catch (err: any) {
     console.error('Registration error:', err);
     return NextResponse.json(

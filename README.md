@@ -36,7 +36,7 @@ All the original Vane features, plus:
 ```bash
 # Clone the repository
 git clone https://github.com/stanleyau-xx/Vane-MU.git
-cd Vane
+cd Vane-MU
 
 # Build with Docker
 docker build -t vane-mu .
@@ -49,7 +49,7 @@ Open http://localhost:3000 and complete the first-time setup (this creates the i
 
 ```bash
 git clone https://github.com/stanleyau-xx/Vane-MU.git
-cd Vane
+cd Vane-MU
 docker-compose up -d
 ```
 
@@ -57,7 +57,7 @@ docker-compose up -d
 
 ```bash
 git clone https://github.com/stanleyau-xx/Vane-MU.git
-cd Vane
+cd Vane-MU
 npm install
 npm run dev
 ```

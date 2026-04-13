@@ -7,7 +7,7 @@ import SessionManager from '@/lib/session';
 import { ChatTurnMessage } from '@/lib/types';
 import { SearchSources } from '@/lib/agents/search/types';
 import db from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { chats } from '@/lib/db/schema';
 import UploadManager from '@/lib/uploads/manager';
 import { requireAuth } from '@/lib/middleware';
@@ -81,7 +81,7 @@ const ensureChatExists = async (input: {
     const [exists] = await db
       .select()
       .from(chats)
-      .where(eq(chats.id, input.id))
+      .where(and(eq(chats.id, input.id), eq(chats.userId, input.userId)))
       .limit(1);
 
     if (!exists) {

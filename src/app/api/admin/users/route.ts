@@ -6,6 +6,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  getUserById,
   UserRole,
 } from '@/lib/auth';
 
@@ -103,6 +104,12 @@ export const PUT = async (req: NextRequest) => {
       return NextResponse.json({ message: 'No fields to update' }, { status: 400 });
     }
 
+    // Verify target user exists
+    const targetUser = await getUserById(userId);
+    if (!targetUser) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
     await updateUser(userId, parse.data);
 
     return NextResponse.json({ message: 'User updated successfully' });
@@ -129,6 +136,12 @@ export const DELETE = async (req: NextRequest) => {
 
     if (userId === auth.user.id) {
       return NextResponse.json({ message: 'Cannot delete yourself' }, { status: 403 });
+    }
+
+    // Verify target user exists
+    const targetUser = await getUserById(userId);
+    if (!targetUser) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
     await deleteUser(userId);

@@ -17,6 +17,7 @@ type UploadManagerParams = {
 
 type RecordedFile = {
     id: string;
+    userId: string;
     name: string;
     filePath: string;
     contentPath: string;
@@ -63,18 +64,24 @@ class UploadManager {
         fs.writeFileSync(UploadManager.uploadedFilesRecordPath, JSON.stringify({ files: currentData }, null, 2));
     }
 
-    static getFile(fileId: string): RecordedFile | null {
+    static getFile(fileId: string, userId?: string): RecordedFile | null {
         const recordedFiles = this.getRecordedFiles();
-
-        return recordedFiles.find(f => f.id === fileId) || null;
+        const file = recordedFiles.find(f => f.id === fileId) || null;
+        
+        // If userId provided, verify ownership
+        if (file && userId && file.userId !== userId) {
+            return null;
+        }
+        
+        return file;
     }
 
-    static getFileChunks(fileId: string): { content: string; embedding: number[] }[] {
+    static getFileChunks(fileId: string, userId?: string): { content: string; embedding: number[] }[] {
         try {
-            const recordedFile = this.getFile(fileId);
+            const recordedFile = this.getFile(fileId, userId);
 
             if (!recordedFile) {
-                throw new Error(`File with ID ${fileId} not found`);
+                throw new Error(`File with ID ${fileId} not found or access denied`);
             }
 
             const contentData = JSON.parse(fs.readFileSync(recordedFile.contentPath, 'utf-8'))
@@ -174,7 +181,7 @@ class UploadManager {
         }
     }
 
-    async processFiles(files: File[]): Promise<FileRes[]> {
+    async processFiles(files: File[], userId: string): Promise<FileRes[]> {
         const processedFiles: FileRes[] = [];
 
         await Promise.all(files.map(async (file) => {
@@ -196,6 +203,7 @@ class UploadManager {
 
             const fileRecord: RecordedFile = {
                 id: fileId,
+                userId: userId,
                 name: file.name,
                 filePath: filePath,
                 contentPath: contentFilePath,

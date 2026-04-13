@@ -26,7 +26,11 @@ export default function AuthLayout({
     fetch('/api/auth/setup-status')
       .then((r) => r.json())
       .then((d) => setSetupComplete(d.setupComplete))
-      .catch(() => setSetupComplete(true));
+      .catch(() => {
+        // Fail closed - if we can't verify setup status, treat as incomplete
+        console.error('Failed to fetch setup status');
+        setSetupComplete(false);
+      });
   }, []);
 
   if (loading || setupComplete === null) {

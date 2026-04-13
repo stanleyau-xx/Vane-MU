@@ -15,8 +15,12 @@ export const GET = async () => {
     try {
       const result = await db.select({ count: sql<number>`count(*)` }).from(users);
       hasUsers = result[0]?.count > 0;
-    } catch {
-      hasUsers = false;
+    } catch (dbErr) {
+      console.error('Database error checking setup status:', dbErr);
+      return NextResponse.json(
+        { message: 'Database error', setupComplete: false, hasUsers: false },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
@@ -26,7 +30,7 @@ export const GET = async () => {
   } catch (err) {
     console.error('Error checking setup status:', err);
     return NextResponse.json(
-      { setupComplete: false, hasUsers: false },
+      { message: 'Internal server error', setupComplete: false, hasUsers: false },
       { status: 500 },
     );
   }

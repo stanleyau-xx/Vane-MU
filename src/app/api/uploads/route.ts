@@ -27,9 +27,10 @@ export async function POST(req: NextRequest) {
     
     const uploadManager = new UploadManager({
       embeddingModel: model,
+      userId: auth.user.id, // Scope uploads to authenticated user
     });
 
-    const processedFiles = await uploadManager.processFiles(files);
+    const processedFiles = await uploadManager.processFiles(files, auth.user.id);
 
     return NextResponse.json({
       files: processedFiles,

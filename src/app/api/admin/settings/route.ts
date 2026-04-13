@@ -52,6 +52,13 @@ export const PUT = async (req: NextRequest) => {
       for (let i = 0; i < entries.length; i++) {
         const k: string = entries[i][0];
         const v: string = entries[i][1];
+        // Validate key to prevent prototype pollution
+        if (!/^[a-zA-Z0-9_-]+$/.test(k)) {
+          return NextResponse.json(
+            { message: 'Invalid setting key' },
+            { status: 400 },
+          );
+        }
         (configManager as any).updateConfig(`search.${k}`, v);
       }
     }

@@ -384,15 +384,35 @@ export const executeSearch = async (input: {
     await Promise.all(
       filteredResults.map(async (result, i) => {
         try {
-          const scrapedData = await Scraper.scrape(result.metadata.url).catch(
-            (err) => {
-              console.log('Error scraping data from', result.metadata.url, err);
-            },
-          );
+          const scrapedData = await Scraper.scrape(result.metadata.url).catch(() => {});
 
           if (!scrapedData) return;
 
           let accumulatedContent = '';
+          const contentChunks = splitText(scrapedData.content, 4000, 500);
+
+          await Promise.all(
+            contentChunks.map(async (chunk) => {
+              try {
+                const extractorOutput = await input.llm.generateObject<
+                  typeof extractorSchema
+                >({
+                  schema: extractorSchema,
+                  messages: [
+                    {
+                      role: 'system',
+                      content: extractorPrompt,
+                    },
+                    {
+                      role: 'user',
+                      content: `<queries>${input.queries.join(', ')}</queries>\n<scraped_data>${chunk}</scraped_data>`,
+                    },
+                  ],
+                });
+                accumulatedContent += extractorOutput.extracted_facts + '\n';
+              } catch {}
+            }),
+          );
           const chunks = splitText(scrapedData.content, 4000, 500);
 
           await Promise.all(
@@ -424,6 +444,11 @@ export const executeSearch = async (input: {
           extractedFacts.push({
             ...result,
             content: accumulatedContent,
+            metadata: (() => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { embedding, ...rest } = result.metadata;
+              return rest;
+            })(),
           });
         } catch (err) {
           console.log(
