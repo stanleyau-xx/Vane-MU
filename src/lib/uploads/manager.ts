@@ -13,6 +13,7 @@ type SupportedMimeType = typeof supportedMimeTypes[number];
 
 type UploadManagerParams = {
     embeddingModel: BaseEmbedding<any>;
+    userId: string;
 }
 
 type RecordedFile = {
@@ -32,11 +33,13 @@ type FileRes = {
 
 class UploadManager {
     private embeddingModel: BaseEmbedding<any>;
+    private userId: string;
     static uploadsDir = path.join(process.cwd(), 'data', 'uploads');
     static uploadedFilesRecordPath = path.join(this.uploadsDir, 'uploaded_files.json');
 
     constructor(private params: UploadManagerParams) {
         this.embeddingModel = params.embeddingModel;
+        this.userId = params.userId;
 
         if (!fs.existsSync(UploadManager.uploadsDir)) {
             fs.mkdirSync(UploadManager.uploadsDir, { recursive: true });
