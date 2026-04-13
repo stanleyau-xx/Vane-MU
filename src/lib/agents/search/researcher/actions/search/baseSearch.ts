@@ -391,52 +391,38 @@ export const executeSearch = async (input: {
           let accumulatedContent = '';
           const contentChunks = splitText(scrapedData.content, 4000, 500);
 
+          // Timeout helper
+          const scrapeTimeout = (promise: Promise<any>, ms = 15000) => {
+            return Promise.race([
+              promise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out')), ms)),
+            ]);
+          };
+
           await Promise.all(
             contentChunks.map(async (chunk) => {
               try {
-                const extractorOutput = await input.llm.generateObject<
-                  typeof extractorSchema
-                >({
-                  schema: extractorSchema,
-                  messages: [
-                    {
-                      role: 'system',
-                      content: extractorPrompt,
-                    },
-                    {
-                      role: 'user',
-                      content: `<queries>${input.queries.join(', ')}</queries>\n<scraped_data>${chunk}</scraped_data>`,
-                    },
-                  ],
-                });
-                accumulatedContent += extractorOutput.extracted_facts + '\n';
-              } catch {}
-            }),
-          );
-          const chunks = splitText(scrapedData.content, 4000, 500);
-
-          await Promise.all(
-            chunks.map(async (chunk) => {
-              try {
-                const extractorOutput = await input.llm.generateObject<
-                  typeof extractorSchema
-                >({
-                  schema: extractorSchema,
-                  messages: [
-                    {
-                      role: 'system',
-                      content: extractorPrompt,
-                    },
-                    {
-                      role: 'user',
-                      content: `<queries>${input.queries.join(', ')}</queries>\n<scraped_data>${chunk}</scraped_data>`,
-                    },
-                  ],
-                });
-
+                const extractorOutput = await scrapeTimeout(
+                  input.llm.generateObject<
+                    typeof extractorSchema
+                  >({
+                    schema: extractorSchema,
+                    messages: [
+                      {
+                        role: 'system',
+                        content: extractorPrompt,
+                      },
+                      {
+                        role: 'user',
+                        content: `<queries>${input.queries.join(', ')}</queries>\n<scraped_data>${chunk}</scraped_data>`,
+                      },
+                    ],
+                  }),
+                  15000 // 15秒timeout
+                );
                 accumulatedContent += extractorOutput.extracted_facts + '\n';
               } catch (err) {
-                console.log('Error extracting information from chunk', err);
+                console.log('[EXTRACT_TIMEOUT_OR_ERROR]', result.metadata.url, err);
               }
             }),
           );
