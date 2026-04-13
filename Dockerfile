@@ -13,6 +13,7 @@ COPY public ./public
 COPY drizzle ./drizzle
 
 RUN mkdir -p /home/vane/data
+ENV JWT_SECRET=test-build-secret
 RUN yarn build
 
 FROM node:24.5.0-slim
