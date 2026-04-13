@@ -88,13 +88,19 @@ export const executeSearch = async (input: {
         results.push(...resultChunks);
       }
 
+      // Strip embeddings before sending to SSE to avoid huge payloads
+      const cleanResultChunks = resultChunks.map((chunk) => {
+        const { embedding, ...rest } = chunk.metadata;
+        return { ...chunk, metadata: { ...rest } };
+      });
+
       if (!searchResultsEmitted) {
         searchResultsEmitted = true;
 
         researchBlock.data.subSteps.push({
           id: searchResultsBlockId,
           type: 'search_results',
-          reading: resultChunks,
+          reading: cleanResultChunks,
         });
 
         input.session.updateBlock(researchBlock.id, [
@@ -113,7 +119,7 @@ export const executeSearch = async (input: {
           subStepIndex
         ] as SearchResultsResearchBlock;
 
-        subStep.reading.push(...resultChunks);
+        subStep.reading.push(...cleanResultChunks);
 
         input.session.updateBlock(researchBlock.id, [
           {
@@ -198,13 +204,19 @@ export const executeSearch = async (input: {
 
       searchResults.push(...resultChunks);
 
+      // Strip embeddings before sending to SSE to avoid huge payloads
+      const cleanResultChunks = resultChunks.map((chunk) => {
+        const { embedding, ...rest } = chunk.metadata;
+        return { ...chunk, metadata: { ...rest } };
+      });
+
       if (!searchResultsEmitted) {
         searchResultsEmitted = true;
 
         researchBlock.data.subSteps.push({
           id: searchResultsBlockId,
           type: 'search_results',
-          reading: resultChunks,
+          reading: cleanResultChunks,
         });
 
         input.session.updateBlock(researchBlock.id, [
@@ -223,7 +235,7 @@ export const executeSearch = async (input: {
           subStepIndex
         ] as SearchResultsResearchBlock;
 
-        subStep.reading.push(...resultChunks);
+        subStep.reading.push(...cleanResultChunks);
 
         input.session.updateBlock(researchBlock.id, [
           {
@@ -302,11 +314,18 @@ export const executeSearch = async (input: {
       (r) => !alreadyExtractedURLs.find((url) => url === r.metadata.url),
     );
 
-    if (filteredResults.length > 0) {
+    // Strip embeddings before sending to SSE to avoid huge payloads
+    const cleanFilteredResults = filteredResults.map((chunk: Chunk) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { embedding, ...rest } = chunk.metadata;
+      return { ...chunk, metadata: { ...rest } };
+    });
+
+    if (cleanFilteredResults.length > 0) {
       researchBlock.data.subSteps.push({
         id: crypto.randomUUID(),
         type: 'reading',
-        reading: filteredResults,
+        reading: cleanFilteredResults,
       });
 
       input.session.updateBlock(researchBlock.id, [
