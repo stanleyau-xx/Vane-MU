@@ -15,24 +15,3 @@ server:
 engines:
   - name: wolframalpha
     disabled: false
-  - name: google
-    disabled: false
-  - name: duckduckgo
-    disabled: false
-  - name: bing
-    disabled: false
-  - name: brave
-    disabled: false
-  # Disable slow/unreliable engines
-  - name: google news
-    disabled: true
-  - name: bing news
-    disabled: true
-  - name: yahoo
-    disabled: true
-  - name: qwant
-    disabled: true
-  - name: seznam
-    disabled: true
-  - name: mojeek
-    disabled: true
