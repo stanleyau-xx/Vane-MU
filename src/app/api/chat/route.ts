@@ -231,6 +231,11 @@ export const POST = async (req: Request) => {
         fileIds: body.files,
         systemInstructions: body.systemInstructions || 'None',
       },
+    }).catch((err) => {
+      console.error('[chat/route] Unhandled searchAsync rejection:', err);
+      try {
+        session.emit('error', { data: 'An unexpected error occurred.' });
+      } catch (_) {}
     });
 
     ensureChatExists({
