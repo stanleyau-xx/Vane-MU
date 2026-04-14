@@ -41,14 +41,24 @@ export default function AuthLayout({
     );
   }
 
-  // Not logged in → login page (unless already on login/setup)
-  if (!user && !isAuthRoute && !isSetupRoute) {
-    return <LoginPage />;
+  // If setup not complete → redirect to /setup for first-time setup
+  // (must check before login redirect so first-time users see setup wizard)
+  if (!setupComplete) {
+    // Redirect to /setup if not already there
+    if (!isSetupRoute) {
+      window.location.href = '/setup';
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader />
+        </div>
+      );
+    }
+    return <SetupWrapper />;
   }
 
-  // If setup not complete → show setup wizard (even for logged in users)
-  if (!setupComplete) {
-    return <SetupWrapper />;
+  // Not logged in → login page (unless already on login)
+  if (!user && !isAuthRoute) {
+    return <LoginPage />;
   }
 
   // Setup complete and logged in → show main app

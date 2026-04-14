@@ -119,7 +119,7 @@ const SetupConfig = ({
 
       if (!res.ok) throw new Error('Failed to complete setup');
 
-      window.location.reload();
+      window.location.href = '/';
     } catch (error) {
       console.error('Error completing setup:', error);
       toast.error('Failed to complete setup');
