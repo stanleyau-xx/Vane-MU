@@ -1,70 +1,110 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
-// Read migration files directly — no DB connection required
-const MIGRATIONS_DIR = path.join(process.cwd(), 'drizzle');
+describe('DB Migration — real execution smoke tests', () => {
+  // Create a temp DB, run all migrations, verify schema
+  let db: Database.Database;
+  let dbPath: string;
 
-describe('DB Migration — file smoke tests', () => {
-  const migrationFiles = [
-    '0000_fuzzy_randall.sql',
-    '0001_wise_rockslide.sql',
-    '0002_daffy_wrecker.sql',
-    '0003_add_users_sessions.sql',
-    '0004_add_userid_to_chats.sql',
-  ];
-
-  it('all migration files exist', () => {
-    migrationFiles.forEach((file) => {
-      const filePath = path.join(MIGRATIONS_DIR, file);
-      expect(fs.existsSync(filePath)).toBe(true);
-    });
+  beforeAll(() => {
+    // Create a temporary SQLite database for migration testing
+    dbPath = path.join(os.tmpdir(), `vane-migration-test-${Date.now()}.db`);
+    db = new Database(dbPath);
   });
 
-  it('0003 creates users table with RBAC columns', () => {
-    const sql = fs.readFileSync(
-      path.join(MIGRATIONS_DIR, '0003_add_users_sessions.sql'),
-      'utf-8',
-    );
-
-    // Users table
-    expect(sql).toMatch(/CREATE TABLE.*users/);
-    expect(sql).toMatch(/`id`.*PRIMARY KEY/);
-    expect(sql).toMatch(/`username`/);
-    expect(sql).toMatch(/`password_hash`/);
-    expect(sql).toMatch(/`role`/);
-    expect(sql).toMatch(/`createdAt`/);
-
-    // Sessions table
-    expect(sql).toMatch(/CREATE TABLE.*sessions/);
-    expect(sql).toMatch(/`id`.*PRIMARY KEY/);
-    expect(sql).toMatch(/`userId`/);
-    expect(sql).toMatch(/`expiresAt`/);
-    expect(sql).toMatch(/`createdAt`/);
+  afterAll(() => {
+    db?.close();
+    // Clean up temp DB
+    try {
+      fs.unlinkSync(dbPath);
+    } catch {}
   });
 
-  it('0004 adds userId to chats table for multi-user support', () => {
-    const sql = fs.readFileSync(
-      path.join(MIGRATIONS_DIR, '0004_add_userid_to_chats.sql'),
-      'utf-8',
-    );
+  it('executes all migrations without error', () => {
+    const migrationsDir = path.join(process.cwd(), 'drizzle');
+    const migrationFiles = [
+      '0000_fuzzy_randall.sql',
+      '0001_wise_rockslide.sql',
+      '0002_daffy_wrecker.sql',
+      '0003_add_users_sessions.sql',
+      '0004_add_userid_to_chats.sql',
+    ];
 
-    expect(sql).toMatch(/ALTER TABLE.*chats/);
-    expect(sql).toMatch(/userId/);
+    for (const file of migrationFiles) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+      // Only execute non-empty, non-no-op migrations
+      if (sql.trim().length > 0 && sql.trim().toLowerCase() !== '/* do nothing */') {
+        expect(() => db.exec(sql)).not.toThrow();
+      }
+    }
   });
 
-  it('migration files are valid SQL (no obvious syntax errors)', () => {
-    migrationFiles.forEach((file) => {
-      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
+  it('creates chats table with required columns', () => {
+    const columns = db
+      .prepare('PRAGMA table_info(chats)')
+      .all() as Array<{ name: string }>;
+    const colNames = columns.map((c) => c.name);
 
-      // Basic checks — SQL files should have CREATE, ALTER, be a no-op, or be a comment-only migration
-      const isEmpty = sql.trim().length === 0;
-      const isNoOp = sql.trim().toLowerCase() === '/* do nothing */';
-      const hasValidStatements =
-        isEmpty || isNoOp || sql.includes('CREATE') || sql.includes('ALTER');
+    expect(colNames).toContain('id');
+    expect(colNames).toContain('title');
+    expect(colNames).toContain('createdAt');
+    expect(colNames).toContain('focusMode');
+    expect(colNames).toContain('userId'); // Added by 0004
+  });
 
-      expect(hasValidStatements).toBe(true);
-    });
+  it('creates users table with RBAC columns', () => {
+    const columns = db
+      .prepare('PRAGMA table_info(users)')
+      .all() as Array<{ name: string }>;
+    const colNames = columns.map((c) => c.name);
+
+    expect(colNames).toContain('id');
+    expect(colNames).toContain('username');
+    expect(colNames).toContain('password_hash');
+    expect(colNames).toContain('role');
+    expect(colNames).toContain('createdAt');
+  });
+
+  it('creates sessions table with session management columns', () => {
+    const columns = db
+      .prepare('PRAGMA table_info(sessions)')
+      .all() as Array<{ name: string }>;
+    const colNames = columns.map((c) => c.name);
+
+    expect(colNames).toContain('id');
+    expect(colNames).toContain('userId');
+    expect(colNames).toContain('expiresAt');
+    expect(colNames).toContain('createdAt');
+  });
+
+  it('chats.userId has correct NOT NULL constraint', () => {
+    const info = db
+      .prepare('PRAGMA table_info(chats)')
+      .all() as Array<{ name: string; notnull: number }>;
+    const userIdCol = info.find((c) => c.name === 'userId');
+    expect(userIdCol).toBeDefined();
+    expect(userIdCol.notnull).toBe(1); // NOT NULL
+  });
+
+  it('sessions.userId has correct NOT NULL constraint', () => {
+    const info = db
+      .prepare('PRAGMA table_info(sessions)')
+      .all() as Array<{ name: string; notnull: number }>;
+    const userIdCol = info.find((c) => c.name === 'userId');
+    expect(userIdCol).toBeDefined();
+    expect(userIdCol.notnull).toBe(1); // NOT NULL
+  });
+
+  it('users.role defaults to user', () => {
+    const info = db
+      .prepare('PRAGMA table_info(users)')
+      .all() as Array<{ name: string; dflt_value: string | null }>;
+    const roleCol = info.find((c) => c.name === 'role');
+    expect(roleCol).toBeDefined();
+    expect(roleCol.dflt_value).toBe("'user'");
   });
 });
 
