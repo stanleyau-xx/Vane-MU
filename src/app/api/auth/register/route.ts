@@ -5,6 +5,28 @@ import db from '@/lib/db';
 import { sql } from 'drizzle-orm';
 import { users } from '@/lib/db/schema';
 
+// Rate limiting for registration (bcrypt is CPU-intensive)
+const registerAttempts = new Map<string, { count: number; resetAt: number }>();
+const REGISTER_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const MAX_REGISTER_PER_WINDOW = 3;
+
+function checkRegisterRateLimit(ip: string): { allowed: boolean; remaining: number; retryAfterMs?: number } {
+  const now = Date.now();
+  const record = registerAttempts.get(ip);
+
+  if (!record || now > record.resetAt) {
+    registerAttempts.set(ip, { count: 1, resetAt: now + REGISTER_RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: MAX_REGISTER_PER_WINDOW - 1 };
+  }
+
+  if (record.count >= MAX_REGISTER_PER_WINDOW) {
+    return { allowed: false, remaining: 0, retryAfterMs: record.resetAt - now };
+  }
+
+  record.count++;
+  return { allowed: true, remaining: MAX_REGISTER_PER_WINDOW - record.count };
+}
+
 export const runtime = 'nodejs';
 
 const registerSchema = z.object({
@@ -25,6 +47,24 @@ export const POST = async (req: NextRequest) => {
     }
 
     const { username, password } = parse.data;
+
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+             || req.headers.get('x-real-ip')
+             || 'unknown';
+    const rateLimit = checkRegisterRateLimit(ip);
+
+    const headers = {
+      'X-RateLimit-Remaining': String(rateLimit.remaining),
+      'X-RateLimit-Limit': String(MAX_REGISTER_PER_WINDOW),
+      ...(rateLimit.retryAfterMs ? { 'Retry-After': String(Math.ceil(rateLimit.retryAfterMs / 1000)) } : {}),
+    };
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { message: 'Too many registration attempts. Please try again later.' },
+        { status: 429, headers },
+      );
+    }
 
     // Check if username already taken
     const existing = await getUserByUsername(username);
