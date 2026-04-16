@@ -101,7 +101,10 @@ Access the admin panel by clicking the **gear icon → Admin Panel** in the side
 - Sessions are managed via **HTTP-only cookies** using **jose** (JWT)
 - Admin API routes are protected by server-side `requireAdmin` middleware
 - Users cannot access or configure AI model providers or search settings
-- **JWT_SECRET enforcement**: In production (`NODE_ENV=production`), the app will **refuse to start** without a valid `JWT_SECRET` environment variable. In development, a fallback key is used with a console warning.
+- **JWT_SECRET enforcement**: In production (`NODE_ENV=production`), the app **refuses to start** without a valid `JWT_SECRET` environment variable — there is no fallback. In development, a placeholder key is used with a console warning. To set in production:
+  ```bash
+  docker run -e JWT_SECRET=your-secret-here -e NODE_ENV=production ...
+  ```
 
 ## 📁 Project Structure
 
