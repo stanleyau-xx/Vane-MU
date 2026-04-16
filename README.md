@@ -4,6 +4,8 @@
 
 **Vane-MU** is the multi-user fork of [Vane](https://github.com/ItzCrazyKns/Vane), a privacy-focused AI answering engine. Vane-MU extends Vane with built-in user authentication, role-based access control, and a dedicated admin panel — allowing you to run a private AI search platform for multiple users.
 
+> 📖 **Architecture** — Want to know how Vane works under the hood? See the [Original Vane Architecture Docs](https://github.com/ItzCrazyKns/Vane/tree/master/docs/architecture/README.md).
+
 ## ✨ Features
 
 All the original Vane features, plus:
@@ -99,6 +101,7 @@ Access the admin panel by clicking the **gear icon → Admin Panel** in the side
 - Sessions are managed via **HTTP-only cookies** using **jose** (JWT)
 - Admin API routes are protected by server-side `requireAdmin` middleware
 - Users cannot access or configure AI model providers or search settings
+- **JWT_SECRET enforcement**: In production (`NODE_ENV=production`), the app will **refuse to start** without a valid `JWT_SECRET` environment variable. In development, a fallback key is used with a console warning.
 
 ## 📁 Project Structure
 
